@@ -19,10 +19,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // if (config('app.env') !== 'local') {
-        //     URL::forceScheme('https');
-        // }
-        // URL::forceScheme('https');
+        if (config('app.env') !== 'local') {
+            URL::forceScheme('https');
+        }
+        URL::forceScheme('https');
         // Har qanday "can:modul.amal" tekshiruvi shu yerdan o'tadi.
         // true qaytarsa ruxsat; null qaytarsa Gate keyingi qoidalarga o'tadi va (aniqlanmagan bo'lsa) rad etadi.
         Gate::before(fn(User $user, string $ability) => $user->hasPermission($ability) ? true : null);
