@@ -1,0 +1,4 @@
+<?php
+namespace App\Http\Requests\Finance;
+use Illuminate\Foundation\Http\FormRequest;
+class BankTransactionRequest extends FormRequest { public function authorize(): bool{return true;} public function rules(): array { return ['type'=>['required','in:deposit,withdrawal,transfer,cash_to_bank,bank_to_cash'],'from_account_id'=>['required_if:type,withdrawal,transfer,bank_to_cash','nullable','integer','exists:bank_accounts,id'],'to_account_id'=>['required_if:type,deposit,transfer,cash_to_bank','nullable','integer','exists:bank_accounts,id'],'cashbox_id'=>['required_if:type,cash_to_bank,bank_to_cash','nullable','integer','exists:cashboxes,id'],'amount'=>['required','numeric','gt:0','max:9999999999999999.99'],'description'=>['nullable','string','max:500'],'client_token'=>['nullable','string','max:80']]; } }

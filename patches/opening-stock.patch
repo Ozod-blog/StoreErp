@@ -1,0 +1,56 @@
+--- a/backend/app/Models/StockDocument.php	2026-10-13 06:23:39.770193713 +0000
++++ b/backend/app/Models/StockDocument.php	2026-10-13 06:23:39.789788418 +0000
+@@ -12,6 +12,7 @@
+         'issue' => 'CH',
+         'transfer' => 'KO',
+         'inventory' => 'IN',
++        'opening' => 'BQ',
+     ];
+ 
+     protected $fillable = [
+--- a/backend/app/Services/StockService.php	2026-10-13 06:23:39.767439973 +0000
++++ b/backend/app/Services/StockService.php	2026-10-13 06:23:39.790135122 +0000
+@@ -74,7 +74,7 @@
+                 }
+ 
+                 $price = null;
+-                if ($type === 'purchase') {
++                if (in_array($type, ['purchase', 'opening'], true)) {
+                     $p2 = Dec::units($row['price'] ?? 0, 2);
+                     $subtotal += Dec::lineTotal($qty, $p2);
+                     $price = Dec::str($p2, 2);
+@@ -111,7 +111,7 @@
+                     }
+                 }
+             } else {
+-                $total = $type === 'purchase_return' ? $subtotal : 0;
++                $total = in_array($type, ['purchase_return', 'opening'], true) ? $subtotal : 0;
+             }
+ 
+             $attrs = [
+@@ -177,6 +177,7 @@
+ 
+             match ($doc->type) {
+                 'purchase' => $this->applyPurchase($doc, $products, $user),
++                'opening' => $this->applyPurchase($doc, $products, $user, 'opening'),
+                 'purchase_return' => $this->applyPurchaseReturn($doc, $products, $user),
+                 'issue' => $this->applyIssue($doc, $products, $user),
+                 'transfer' => $this->applyTransfer($doc, $products, $user),
+@@ -236,7 +237,7 @@
+ 
+     // ---------------------------------------------------------------- hujjat turlari
+ 
+-    private function applyPurchase(StockDocument $doc, Collection $products, User $user): void
++    private function applyPurchase(StockDocument $doc, Collection $products, User $user, string $moveType = 'purchase'): void
+     {
+         $subtotal = 0;
+         foreach ($doc->items as $item) {
+@@ -259,7 +260,7 @@
+ 
+             $product->forceFill(['avg_cost' => $newAvg, 'purchase_price' => $price])->save();
+             $item->update(['unit_cost' => $netUnit]);
+-            $this->move($doc, (int) $doc->warehouse_id, $product, $qty, 'purchase', $netUnit, $user->id);
++            $this->move($doc, (int) $doc->warehouse_id, $product, $qty, $moveType, $netUnit, $user->id);
+         }
+ 
+         $doc->forceFill(['total' => Dec::str($total, 2)]);

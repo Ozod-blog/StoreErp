@@ -1,0 +1,26 @@
+"use client";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { api, tokenStore } from "./api";
+export type Language = "uz-Latn" | "uz-Cyrl" | "ru";
+type Preferences = { language: Language; setLanguage: (v: Language) => void; theme: "light" | "dark"; toggleTheme: () => void; t: (key: string, fallback?: string) => string };
+const dictionaries: Record<Language, Record<string,string>> = {
+ "uz-Latn": {"groupHome":"Asosiy","groupSales":"Savdo","groupInventory":"Mahsulot va ombor","groupFinance":"Moliya va hisobotlar","groupTeam":"Xodimlar va boshqaruv","dashboard":"Boshqaruv paneli","pos":"Savdo (POS)","sales":"Sotuv tarixi","customers":"Mijozlar","suppliers":"Yetkazib beruvchilar","products":"Mahsulotlar","labels":"Yorliq (etiket)","categories":"Kategoriyalar","units":"O‘lchov birliklari","branches":"Filiallar","warehouses":"Omborlar","purchases":"Xaridlar (kirim)","returns":"Yetkazib beruvchiga qaytarish","issues":"Chiqim","transfers":"Omborlararo ko‘chirish","inventory":"Inventarizatsiya","movements":"Qoldiq harakati","cashboxes":"Kassalar","bank":"Bank","expenses":"Xarajatlar","shifts":"Kassa smenalari","schedules":"Ish jadvali","users":"Foydalanuvchilar","employees":"Xodimlar","roles":"Rollar va ruxsatlar","reports":"Hisobotlar","audit":"Audit jurnali","imports":"Excel import","logout":"Chiqish","noAccess":"Bu bo‘limga kirish uchun ruxsatingiz yo‘q.","settings":"Ko‘rinish sozlamalari"},
+ "uz-Cyrl": {"groupHome":"Асосий","groupSales":"Савдо","groupInventory":"Маҳсулот ва омбор","groupFinance":"Молия ва ҳисоботлар","groupTeam":"Ходимлар ва бошқарув","dashboard":"Бошқарув панели","pos":"Савдо (POS)","sales":"Сотув тарихи","customers":"Мижозлар","suppliers":"Етказиб берувчилар","products":"Маҳсулотлар","labels":"Ёрлиқ (этикет)","categories":"Категориялар","units":"Ўлчов бирликлари","branches":"Филиаллар","warehouses":"Омборлар","purchases":"Харидлар (кирим)","returns":"Етказиб берувчига қайтариш","issues":"Чиқим","transfers":"Омборлараро кўчириш","inventory":"Инвентаризация","movements":"Қолдиқ ҳаракати","cashboxes":"Кассалар","bank":"Банк","expenses":"Харажатлар","shifts":"Касса сменалари","schedules":"Иш жадвали","users":"Фойдаланувчилар","employees":"Ходимлар","roles":"Роллар ва рухсатлар","reports":"Ҳисоботлар","audit":"Аудит журнали","imports":"Excel импорт","logout":"Чиқиш","noAccess":"Бу бўлимга кириш учун рухсатингиз йўқ.","settings":"Кўриниш созламалари"},
+ "ru": {"groupHome":"Главная","groupSales":"Продажи","groupInventory":"Товары и склад","groupFinance":"Финансы и отчёты","groupTeam":"Персонал и управление","dashboard":"Панель управления","pos":"Продажи (POS)","sales":"История продаж","customers":"Клиенты","suppliers":"Поставщики","products":"Товары","labels":"Этикетки","categories":"Категории","units":"Единицы измерения","branches":"Филиалы","warehouses":"Склады","purchases":"Закупки","returns":"Возврат поставщику","issues":"Списание","transfers":"Перемещение между складами","inventory":"Инвентаризация","movements":"Движение остатков","cashboxes":"Кассы","bank":"Банк","expenses":"Расходы","shifts":"Кассовые смены","schedules":"График работы","users":"Пользователи","employees":"Сотрудники","roles":"Роли и права","reports":"Отчёты","audit":"Журнал аудита","imports":"Импорт Excel","logout":"Выйти","noAccess":"У вас нет доступа к этому разделу.","settings":"Настройки интерфейса"}
+};
+const Context = createContext<Preferences | null>(null);
+export function PreferencesProvider({children}:{children:ReactNode}) {
+ const [language,setLanguageState] = useState<Language>("uz-Latn"); const [theme,setTheme] = useState<"light"|"dark">("light"); const [ready,setReady]=useState(false);
+ const setLanguage = useCallback((v: Language) => {
+   if (!dictionaries[v]) return;
+   setLanguageState(v);
+   try { localStorage.setItem("erp-language", v); } catch {}
+   if (tokenStore.get()) api<{language: Language}>("/auth/preferences", {method:"PATCH", body:{language:v}}).catch(() => { /* Offline/API unavailable: local preference remains active. */ });
+ }, []);
+ useEffect(()=>{try{const l=localStorage.getItem("erp-language") as Language|null; const th=localStorage.getItem("erp-theme"); if(l && dictionaries[l]) setLanguageState(l); if(th==="dark"||th==="light") setTheme(th);}catch{} setReady(true)},[]);
+ useEffect(()=>{if(!ready)return; document.documentElement.dataset.theme=theme; document.documentElement.lang=language; try{localStorage.setItem("erp-language",language);localStorage.setItem("erp-theme",theme)}catch{}},[language,theme,ready]);
+ useEffect(()=>{ if(!ready || !tokenStore.get()) return; api<{user:{language?:Language}}> ("/auth/me").then(r=>{if(r.user?.language && dictionaries[r.user.language]) {setLanguageState(r.user.language); try{localStorage.setItem("erp-language",r.user.language)}catch{}}}).catch(()=>{}); },[ready]);
+ const value=useMemo(()=>({language,setLanguage,theme,toggleTheme:()=>setTheme(v=>v==="dark"?"light":"dark"),t:(key:string,fallback?:string)=>dictionaries[language][key]||fallback||key}),[language,theme,setLanguage]);
+ return <Context.Provider value={value}>{children}</Context.Provider>;
+}
+export function usePreferences(){const v=useContext(Context);if(!v)throw new Error("usePreferences PreferencesProvider ichida ishlatiladi");return v;}

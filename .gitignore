@@ -1,0 +1,7 @@
+node_modules/
+.next/
+.env
+vendor/
+.phpunit.result.cache
+storage/*.key
+storage/logs/*
